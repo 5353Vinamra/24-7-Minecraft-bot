@@ -1,0 +1,52 @@
+{
+  "bot-account": {
+    "username": "Isuck",
+    "password": "",
+    "type": "mojang"
+  },
+
+  "server": {
+    "ip": "Vartiaxs.aternos.me",
+    "port":41127,
+    "version": "1.18.2"
+  },
+
+  "position": {
+    "enabled": false,
+    "x": 0,
+    "y": 0,
+    "z": 0
+  },
+
+  "utils": {
+    "auto-auth": {
+      "enabled": true,
+      "password": "yassinehzz$is$the$best" 
+    }, 
+
+    "anti-afk": {
+      "enabled": true,
+      "sneak": false
+    },
+
+    "chat-messages": {
+      "enabled": true,
+      "repeat": true,
+      "repeat-delay": 60,
+
+      "messages": [
+        "Dancebaby",
+        "~My friends are nigger~",
+        "Ireally suck",
+          "I love chocos ",
+        "WTF dude walk careful;y",
+        "choco in kids",
+        "Fly me to the moon"
+      ]
+    },
+
+    "chat-log": false,
+    "auto-reconnect": true,
+    "auto-reconnect-delay": 1000
+  }
+}
