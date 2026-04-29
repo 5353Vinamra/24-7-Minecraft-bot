@@ -8,6 +8,7 @@ on:
 jobs:
   run-bot:
     runs-on: ubuntu-latest
+    timeout-minutes: 360
 
     steps:
       - name: Checkout code
@@ -21,7 +22,10 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Run bot
+      - name: Run bot in loop
         run: |
-          node bot.js &
-          sleep 360m
+          while true; do
+            node bot.js
+            echo "Bot stopped. Restarting in 5 seconds..."
+            sleep 5
+          done
