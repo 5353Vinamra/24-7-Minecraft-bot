@@ -3,7 +3,7 @@ name: Run Bot 24/7
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "0 */6 * * *"
 
 jobs:
   run-bot:
@@ -24,4 +24,4 @@ jobs:
       - name: Run bot
         run: |
           node bot.js &
-          sleep 350m
+          sleep 360m
