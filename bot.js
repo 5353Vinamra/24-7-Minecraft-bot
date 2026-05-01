@@ -104,3 +104,7 @@ function createBot()
 	)
 }
 createBot()  
+setTimeout(() => {
+  console.log("Restarting before timeout...");
+  process.exit(0);
+}, 345 * 60 * 1000); // 5 hours 45 min
