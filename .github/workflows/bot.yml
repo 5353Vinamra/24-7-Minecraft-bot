@@ -7,7 +7,7 @@ on:
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 365
+    timeout-minutes: 350
 
     steps:
       - name: Checkout code
