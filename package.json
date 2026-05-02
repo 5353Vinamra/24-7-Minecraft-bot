@@ -8,6 +8,7 @@
     "minecraft-data": "^3.5.0",
     "mineflayer": "^4.3.0",
     "mineflayer-pathfinder": "^2.1.1"
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "node": "^16.15.1"
