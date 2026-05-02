@@ -22,6 +22,12 @@ jobs:
         run: npm ci || npm install
 
       - name: Run bot
+        env:
+          SERVER_IP: ${{ secrets.SERVER_IP }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
+          BOT_USERNAME: ${{ secrets.BOT_USERNAME }}
+          BOT_PASSWORD: ${{ secrets.BOT_PASSWORD }}
+          AUTO_AUTH_PASSWORD: ${{ secrets.AUTO_AUTH_PASSWORD }}
         run: |
           while true; do
             node bot.js
