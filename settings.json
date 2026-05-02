@@ -1,13 +1,13 @@
 {
   "bot-account": {
-    "username": "Soldier",
+    "username": " ",
     "password": "",
     "type": "mojang"
   },
 
   "server": {
-    "ip": "Vartiaxs.aternos.me",
-    "port":41127,
+    "ip": " ",
+    "port": ,
     "version": "1.18.2"
   },
 
@@ -21,7 +21,7 @@
   "utils": {
     "auto-auth": {
       "enabled": true,
-      "password": "yassinehzz$is$the$best" 
+      "password": "  " 
     }, 
 
     "anti-afk": {
