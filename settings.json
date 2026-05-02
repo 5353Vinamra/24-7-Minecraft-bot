@@ -1,50 +1,43 @@
 {
   "bot-account": {
-    "username": " ",
+    "username": "Soldier",
     "password": "",
     "type": "mojang"
   },
-
   "server": {
-    "ip": " ",
-    "port": ,
+    "ip": "HIDDEN",
+    "port": 0,
     "version": "1.18.2"
   },
-
   "position": {
     "enabled": false,
     "x": 0,
     "y": 0,
     "z": 0
   },
-
   "utils": {
     "auto-auth": {
       "enabled": true,
-      "password": "  " 
-    }, 
-
+      "password": "HIDDEN"
+    },
     "anti-afk": {
       "enabled": true,
       "sneak": false
     },
-
     "chat-messages": {
       "enabled": true,
       "repeat": true,
       "repeat-delay": 180,
-
       "messages": [
         "I keep this server online",
         "Vartiax is the owner",
         "I won't message again",
-          "I get beaten by zombies daily",
+        "I get beaten by zombies daily",
         "WTF dude walk carefully",
         "Help me",
         "Fly me to the void"
       ]
     },
-
     "chat-log": false,
     "auto-reconnect": true,
     "auto-reconnect-delay": 1000
