@@ -5,8 +5,8 @@
   "main": "bot.js",
   "dependencies": {
     "express": "^4.18.1",
-    "minecraft-data": "^3.5.0",
-    "mineflayer": "^4.3.0",
+    "minecraft-data": "^3.77.0",
+    "mineflayer": "^4.20.0",
     "mineflayer-pathfinder": "^2.1.1",
     "dotenv": "^16.4.5"
   },
