@@ -7,7 +7,7 @@
   "server": {
     "ip": "HIDDEN",
     "port": 0,
-    "version": "1.18.2"
+    "version": "1.21.8"
   },
   "position": {
     "enabled": false,
