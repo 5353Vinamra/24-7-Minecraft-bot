@@ -1,3 +1,9 @@
 {
-  "accounts": []
+  "accounts": [
+    { "username": "Soldier", "type": "offline" },
+    { "username": "Guard_01", "type": "offline" },
+    { "username": "Wanderer", "type": "offline" },
+    { "username": "Steve_Pro", "type": "offline" },
+    { "username": "MinerBot", "type": "offline" }
+  ]
 }
