@@ -23,7 +23,7 @@ const randomMinutes = Math.floor(Math.random() * (270 - 30 + 1) + 30);
 console.log(`\x1b[33m[Identity Swap]\x1b[0m Selected: ${randomAccount.username}`);
 
 // --- MEMORY SYSTEM ---
-const badWords = ['fuck', 'shit', 'bitch', 'asshole', 'dumbass', 'crap'];
+const badWords = [];
 let conversationHistory = []; 
 const MAX_HISTORY = 50; 
 
