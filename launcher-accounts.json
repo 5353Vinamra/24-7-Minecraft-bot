@@ -1,5 +1,9 @@
 {
   "accounts": [
-    { "username": "Steve_Pro", "type": "offline" }
+    { "username": "Soldier", "type": "offline" },
+    { "username": "Guard_01", "type": "offline" },
+    { "username": "Wanderer", "type": "offline" },
+    { "username": "Steve_Pro", "type": "offline" },
+    { "username": "Kakarot", "type": "offline" }
   ]
 }
