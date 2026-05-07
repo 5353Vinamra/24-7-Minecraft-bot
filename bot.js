@@ -3,14 +3,18 @@ const express = require('express');
 const fs = require('fs');
 const mineflayer = require('mineflayer');
 const { pathfinder, Movements, goals: { GoalBlock } } = require('mineflayer-pathfinder');
+const Groq = require("groq-sdk");
 
-// --- Web Server (Keeps port open for hosting environments) ---
+// --- Web Server ---
 const app = express();
 const port = 3000;
 app.get('/', (req, res) => res.send("Visit discord.gg/yhcodes"));
 app.listen(port, () => console.log("<------------------------------------->"));
 
 const config = require('./settings.json');
+
+// --- AI Setup ---
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 // --- IDENTITY SWAP LOGIC ---
 const accountsData = JSON.parse(fs.readFileSync('./launcher-accounts.json', 'utf8'));
@@ -21,10 +25,7 @@ if (accounts.length === 0) {
     process.exit(1);
 }
 
-// 1. Pick a random account from the array
 const randomAccount = accounts[Math.floor(Math.random() * accounts.length)];
-
-// 2. Set random stay duration (e.g., between 30 mins and 4.5 hours)
 const minMinutes = 30;
 const maxMinutes = 270; 
 const randomMinutes = Math.floor(Math.random() * (maxMinutes - minMinutes + 1) + minMinutes);
@@ -50,13 +51,15 @@ function createBot() {
         // --- Auto Auth ---
         if (config.utils['auto-auth'].enabled) {
             console.log("[INFO] Started auto-auth module");
-            // Uses GitHub Secret if available, otherwise falls back to settings.json
-            const pass = process.env.AUTO_AUTH_PASSWORD || config.utils['auto-auth'].password;
+            const pass = randomAccount.auth_password || process.env.AUTO_AUTH_PASSWORD || config.utils['auto-auth'].password;
+            
             setTimeout(() => {
                 bot.chat(`/register ${pass} ${pass}`);
-                bot.chat(`/login ${pass}`);
-            }, 500);
-            console.log("[Auth] Authentication commands executed.");
+                setTimeout(() => {
+                    bot.chat(`/login ${pass}`);
+                    console.log("[Auth] Authentication commands executed.");
+                }, 500);
+            }, 1000); 
         }
 
         // --- Chat Messages ---
@@ -92,34 +95,50 @@ function createBot() {
         }
     });
 
-    bot.on('goal_reached', () => {
-        console.log(`\x1b[32m[BotLog] Bot arrived to target location.\x1b[0m`);
+    // --- AI Chat Listener ---
+    bot.on('chat', async (username, message) => {
+        if (username === bot.username) return; // Don't talk to yourself
+
+        // The bot will reply if someone types "!ask <question>" OR if someone says the bot's current name
+        if (message.toLowerCase().includes(bot.username.toLowerCase()) || message.startsWith('!ask ')) {
+            const userPrompt = message.replace('!ask ', '').trim();
+
+            try {
+                const chatCompletion = await groq.chat.completions.create({
+                    messages: [
+                        { 
+                          role: "system", 
+                          content: `You are a helpful player named ${bot.username} on a private Minecraft server. Your owner and creator is Vinamra (also known as Vartiax). Answer questions playfully but accurately. Keep your answers under 200 characters so they fit perfectly in the in-game chat box.` 
+                        },
+                        { role: "user", content: userPrompt }
+                    ],
+                    model: "llama-3.1-8b-instant",
+                });
+
+                const responseText = chatCompletion.choices[0].message.content;
+                // Minecraft chat breaks if there are new lines, so we replace them with spaces
+                bot.chat(responseText.replace(/\n/g, ' ').substring(0, 255));
+            } catch (error) {
+                console.error("\x1b[31m[ERROR]\x1b[0m Groq AI failed:", error);
+            }
+        }
     });
 
-    bot.on('death', () => {
-        console.log(`\x1b[33m[BotLog] Bot has died and was respawned\x1b[0m`);
-    });
-
-    bot.on('kicked', (reason) => {
-        console.log(`\x1b[33m[BotLog] Bot was kicked from the server. Reason: \n${reason}\x1b[0m`);
-    });
-
-    bot.on('error', (err) => {
-        console.log(`\x1b[31m[ERROR]\x1b[0m ${err.message}`);
-    });
-
+    bot.on('goal_reached', () => console.log(`\x1b[32m[BotLog] Bot arrived to target location.\x1b[0m`));
+    bot.on('death', () => console.log(`\x1b[33m[BotLog] Bot has died and was respawned\x1b[0m`));
+    bot.on('kicked', (reason) => console.log(`\x1b[33m[BotLog] Bot was kicked from the server. Reason: \n${reason}\x1b[0m`));
+    bot.on('error', (err) => console.log(`\x1b[31m[ERROR]\x1b[0m ${err.message}`));
     bot.on('end', () => {
         console.log(`\x1b[31m[BotLog] Bot disconnected.\x1b[0m`);
         if (config.utils['auto-reconnect']) {
             console.log(`\x1b[33m[BotLog] Reconnecting via GitHub Actions loop...\x1b[0m`);
-            process.exit(0); // Exit so the bot.yml loop handles the clean restart
+            process.exit(0);
         }
     });
 }
 
 createBot();
 
-// --- Random Identity Swap Timer ---
 setTimeout(() => {
     console.log(`\x1b[33m[Identity Swap]\x1b[0m Time is up! Shutting down to trigger a bot swap...`);
     process.exit(0); 
