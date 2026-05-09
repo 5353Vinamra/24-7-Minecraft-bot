@@ -159,12 +159,13 @@ function createBot() {
 createBot();
 
 // Logging the countdown every 15 minutes in logs
+// CHANGED: Using randomAccount.username instead of bot.username to prevent ReferenceError
 const logInterval = setInterval(() => {
     const remaining = Math.round((endTime - Date.now()) / 1000 / 60);
     if (remaining > 0) {
-        console.log(`\x1b[34m[STATUS] ${bot.username} is active. ${remaining} minutes until next identity swap.\x1b[0m`);
+        console.log(`\x1b[34m[STATUS] ${randomAccount.username} is active. ${remaining} minutes until next identity swap.\x1b[0m`);
     }
-}, 15 * 60 * 1000); // 15 minutes
+}, 15 * 60 * 1000); 
 
 // The actual identity swap trigger
 setTimeout(() => { 
