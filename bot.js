@@ -8,7 +8,7 @@ const Groq = require("groq-sdk");
 // --- Web Server ---
 const app = express();
 const port = 3000;
-app.get('/', (req, res) => res.send("Bot is Active."));
+app.get('/', (req, res) => res.send("Bot System Active."));
 app.listen(port, () => console.log("<------------------------------------->"));
 
 const config = require('./settings.json');
@@ -18,12 +18,18 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const accountsData = JSON.parse(fs.readFileSync('./launcher-accounts.json', 'utf8'));
 const accounts = accountsData.accounts;
 const randomAccount = accounts[Math.floor(Math.random() * accounts.length)];
-const randomMinutes = Math.floor(Math.random() * (270 - 30 + 1) + 30);
 
-console.log(`\x1b[33m[Identity Swap]\x1b[0m Selected: ${randomAccount.username}`);
+// Duration Logic
+const minMinutes = 30;
+const maxMinutes = 270; 
+const randomMinutes = Math.floor(Math.random() * (maxMinutes - minMinutes + 1) + minMinutes);
+const endTime = Date.now() + (randomMinutes * 60 * 1000);
 
-// --- MEMORY SYSTEM ---
-const badWords = [];
+console.log(`\x1b[35m[SYSTEM] New Identity: ${randomAccount.username}\x1b[0m`);
+console.log(`\x1b[35m[SYSTEM] Scheduled Swap: In ${randomMinutes} minutes (at ${new Date(endTime).toLocaleTimeString()})\x1b[0m`);
+
+// --- TRACKERS ---
+const badWords = ['fuck', 'shit', 'bitch', 'asshole', 'dumbass', 'crap'];
 let conversationHistory = []; 
 const MAX_HISTORY = 50; 
 
@@ -39,8 +45,10 @@ function createBot() {
 
     bot.loadPlugin(pathfinder);
 
+    // --- LOGGING EVENTS ---
     bot.on('spawn', () => {
-        console.log(`\x1b[32m[BotLog]\x1b[0m ${bot.username} joined.`);
+        console.log(`\x1b[32m[SUCCESS] ${bot.username} is now online.\x1b[0m`);
+        
         if (config.utils['auto-auth'].enabled) {
             const pass = randomAccount.auth_password || process.env.AUTO_AUTH_PASSWORD || config.utils['auto-auth'].password;
             setTimeout(() => {
@@ -50,40 +58,40 @@ function createBot() {
         }
     });
 
-    // --- ENHANCED MESSAGE SCANNER ---
+    // 1. Kick/Ban Detector
+    bot.on('kicked', (reason) => {
+        const cleanReason = JSON.parse(reason).text || reason;
+        console.log(`\x1b[31m[ALERT] ${bot.username} WAS KICKED/BANNED!\x1b[0m`);
+        console.log(`\x1b[31m[REASON] ${cleanReason}\x1b[0m`);
+    });
+
+    // 2. Error Detector
+    bot.on('error', (err) => {
+        console.log(`\x1b[31m[ERROR] Connection Error: ${err.message}\x1b[0m`);
+    });
+
+    // 3. AI Usage Monitor
     bot.on('message', async (jsonMsg) => {
         const rawText = jsonMsg.toString();
         if (!rawText || rawText.trim().length < 2) return;
-
-        // SKIP IF BOT IS THE ONE TALKING
         if (rawText.includes(bot.username)) return;
 
-        // 1. EXTRACT USERNAME (Support for Vanilla, Essentials, and LuckPerms formats)
         let sender = "Player";
-        const parts = rawText.split(/\s+/);
-        
-        // Matches <Name>, [Prefix] Name, or Name: formats
         const match = rawText.match(/<([^>]+)>/) || rawText.match(/([a-zA-Z0-9_]{3,16})(?=\s*[:»>])/) || rawText.match(/\]\s*([a-zA-Z0-9_]{3,16})/);
-        
-        if (match) {
-            sender = match[1].replace(/[<>\[\]]/g, '').trim();
-        }
+        if (match) sender = match[1].replace(/[<>\[\]]/g, '').trim();
 
         const lowerMessage = rawText.toLowerCase();
 
-        // 2. PROFANITY FILTER
         if (badWords.some(word => lowerMessage.includes(word))) {
+            console.log(`\x1b[33m[CHAT] Abusive behavior blocked from: ${sender}\x1b[0m`);
             bot.chat(`${sender}, I will not give you any answer and will request for your ban from Vartiax. Please do not abuse!`);
             return;
         }
 
-        // 3. AI BRAIN TRIGGER
         if (lowerMessage.includes('!ask') || lowerMessage.includes(bot.username.toLowerCase())) {
+            console.log(`\x1b[36m[AI] Request from ${sender}: "${rawText.substring(0, 50)}..."\x1b[0m`);
             
-            // Clean the prompt
             const cleanPrompt = rawText.replace(new RegExp(`!ask|${bot.username}`, 'gi'), '').trim();
-            
-            // Add to Memory
             conversationHistory.push({ role: "user", content: `Player ${sender} says: ${cleanPrompt}` });
             if (conversationHistory.length > MAX_HISTORY) conversationHistory.shift();
 
@@ -92,11 +100,9 @@ function createBot() {
                     messages: [
                         { 
                           role: "system", 
-                          content: `You are a professional Minecraft assistant named ${bot.username}. 
-                          - Your administrator and creator is Vartiax. 
-                          - Address the person talking to you by their name (the one provided in the context). 
-                          - You have full memory of the last 50 messages. Reference them to answer "follow-up" questions.
-                          - You can answer ANY topic (science, math, coding, life).
+                          content: `You are a professional Minecraft assistant named ${bot.username}. Creator: Vartiax.
+                          - Address the person by their name.
+                          - You have full memory of the last 50 messages.
                           - Style: Mature, professional. Max 180 chars.` 
                         },
                         ...conversationHistory
@@ -108,20 +114,35 @@ function createBot() {
                 const finalReply = responseText.replace(/\n/g, ' ').substring(0, 255);
                 
                 bot.chat(finalReply);
+                console.log(`\x1b[36m[AI] Sent reply to ${sender}\x1b[0m`);
 
-                // Remember the bot's own reply
                 conversationHistory.push({ role: "assistant", content: finalReply });
                 if (conversationHistory.length > MAX_HISTORY) conversationHistory.shift();
 
             } catch (error) {
-                console.error("AI Error:", error.message);
+                console.log(`\x1b[31m[AI ERROR] ${error.message}\x1b[0m`);
             }
         }
     });
 
-    bot.on('end', () => { if (config.utils['auto-reconnect']) process.exit(0); });
+    bot.on('end', () => {
+        console.log(`\x1b[31m[DISCONNECT] ${bot.username} left the server.\x1b[0m`);
+        if (config.utils['auto-reconnect']) process.exit(0);
+    });
 }
 
 createBot();
 
-setTimeout(() => { process.exit(0); }, randomMinutes * 60 * 1000);
+// Logging the countdown every 30 minutes in logs
+const logInterval = setInterval(() => {
+    const remaining = Math.round((endTime - Date.now()) / 1000 / 60);
+    if (remaining > 0) {
+        console.log(`\x1b[34m[STATUS] ${bot.username} still active. ${remaining} minutes until swap.\x1b[0m`);
+    }
+}, 30 * 60 * 1000);
+
+setTimeout(() => {
+    console.log(`\x1b[35m[SYSTEM] Time expired. Forcing identity swap...\x1b[0m`);
+    clearInterval(logInterval);
+    process.exit(0); 
+}, randomMinutes * 60 * 1000);
