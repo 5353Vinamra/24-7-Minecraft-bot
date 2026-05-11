@@ -19,17 +19,19 @@ const accountsData = JSON.parse(fs.readFileSync('./launcher-accounts.json', 'utf
 const accounts = accountsData.accounts;
 const randomAccount = accounts[Math.floor(Math.random() * accounts.length)];
 
-// Duration Logic (30 to 240 minutes)
+// Updated Duration: 30 minutes to 4 hours (240 minutes)
 const minMinutes = 30;
 const maxMinutes = 240; 
 const randomMinutes = Math.floor(Math.random() * (maxMinutes - minMinutes + 1) + minMinutes);
-const endTime = Date.now() + (randomMinutes * 60 * 1000);
 
-// Format time in IST
-const istTime = new Date(endTime).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' });
+// FIX: Calculate IST Time accurately for GitHub Actions (UTC +5.5 hours)
+const now = new Date();
+const istOffset = 5.5 * 60 * 60 * 1000; // 5.5 hours in milliseconds
+const endTime = new Date(now.getTime() + (randomMinutes * 60 * 1000));
+const istTimeDisplay = new Date(endTime.getTime() + istOffset).toLocaleTimeString('en-IN', { timeZone: 'UTC' });
 
 console.log(`\x1b[35m[SYSTEM] New Identity Selected: ${randomAccount.username}\x1b[0m`);
-console.log(`\x1b[35m[SYSTEM] Scheduled Swap: In ${randomMinutes} minutes (at ${istTime} IST)\x1b[0m`);
+console.log(`\x1b[35m[SYSTEM] Scheduled Swap: In ${randomMinutes} minutes (at ${istTimeDisplay} IST)\x1b[0m`);
 
 // --- MEMORY SYSTEM ---
 const badWords = ['fuck', 'shit', 'bitch', 'asshole', 'dumbass', 'crap'];
@@ -42,33 +44,52 @@ function createBot() {
         port: process.env.SERVER_PORT || config.server.port,
         username: randomAccount.username,
         password: randomAccount.password || "",
+        // CRITICAL: Ensure server is cracked (online-mode=false) for offline auth to work
         auth: randomAccount.type || config['bot-account'].type || "offline",
         version: config.server.version
     });
 
     bot.loadPlugin(pathfinder);
 
+    let isConnected = false;
+
     // --- LOGGING EVENTS ---
+    bot.on('login', () => {
+        isConnected = true; // Bot has successfully bypassed the server authentication checks
+    });
+
     bot.on('spawn', () => {
-        console.log(`\x1b[32m[SUCCESS] ${bot.username} is now online and spawned in the world.\x1b[0m`);
-        if (config.utils['auto-auth'].enabled) {
-            const pass = randomAccount.auth_password || process.env.AUTO_AUTH_PASSWORD || config.utils['auto-auth'].password;
-            setTimeout(() => {
-                bot.chat(`/register ${pass} ${pass}`);
+        if (isConnected) {
+            console.log(`\x1b[32m[SUCCESS] ${bot.username} is now online and actually spawned in the world.\x1b[0m`);
+            if (config.utils['auto-auth'].enabled) {
+                const pass = randomAccount.auth_password || process.env.AUTO_AUTH_PASSWORD || config.utils['auto-auth'].password;
                 setTimeout(() => {
-                    bot.chat(`/login ${pass}`);
-                    console.log(`\x1b[32m[SUCCESS] ${bot.username} auto-authenticated.\x1b[0m`);
-                }, 500);
-            }, 1000); 
+                    bot.chat(`/register ${pass} ${pass}`);
+                    setTimeout(() => {
+                        bot.chat(`/login ${pass}`);
+                        console.log(`\x1b[32m[SUCCESS] ${bot.username} auto-authenticated with login plugin.\x1b[0m`);
+                    }, 500);
+                }, 1000); 
+            }
         }
     });
 
-    // 1. Kick/Ban Detector
+    // 1. Kick/Ban Detector (Fixed fake logs)
     bot.on('kicked', (reason) => {
-        let cleanReason = reason;
-        try { cleanReason = JSON.parse(reason).text || reason; } catch(e) {}
-        console.log(`\x1b[31m[ALERT] ${bot.username} WAS KICKED/BANNED!\x1b[0m`);
+        isConnected = false; // Reset connection state
+        let cleanReason = "";
+        try { 
+            const parsed = JSON.parse(reason);
+            cleanReason = parsed.text || reason; 
+        } catch(e) { cleanReason = reason; }
+        
+        console.log(`\x1b[31m[ALERT] ${bot.username} WAS KICKED/REJECTED!\x1b[0m`);
         console.log(`\x1b[31m[REASON] ${cleanReason}\x1b[0m`);
+
+        // Check if the server is rejecting offline accounts
+        if (cleanReason.toLowerCase().includes("online")) {
+            console.log(`\x1b[33m[TIP] The server is rejecting the bot because the server is in Premium Mode. Set 'online-mode=false' in your server.properties.\x1b[0m`);
+        }
     });
 
     // 2. Error Detector
@@ -97,7 +118,7 @@ function createBot() {
         // 2. PROFANITY FILTER
         if (badWords.some(word => lowerMessage.includes(word))) {
             console.log(`\x1b[33m[CHAT] Abusive behavior blocked from: ${sender}\x1b[0m`);
-            bot.chat(`${sender}, I will not give you any answer and will request for your ban from Vartiax. Please do not abuse!`);
+            bot.chat(`${sender}, I will not give you any answer and will request your ban from Vartiax. Please do not abuse!`);
             return;
         }
 
@@ -148,24 +169,25 @@ function createBot() {
 
     // 4. Disconnect Logging
     bot.on('end', () => { 
-        console.log(`\x1b[31m[DISCONNECT] ${bot.username} left the server.\x1b[0m`);
+        console.log(`\x1b[31m[DISCONNECT] ${bot.username} connection ended.\x1b[0m`);
         if (config.utils['auto-reconnect']) {
-            console.log(`\x1b[33m[SYSTEM] Auto-reconnect triggered. Restarting process...\x1b[0m`);
-            process.exit(0); 
+            console.log(`\x1b[33m[SYSTEM] Auto-reconnect triggered. Restarting process in 5 seconds...\x1b[0m`);
+            setTimeout(() => {
+                 process.exit(0); 
+            }, 5000); // Added a 5 second delay to prevent extreme spam if the server is completely down
         }
     });
 }
 
 createBot();
 
-// Logging the countdown every 15 minutes in logs
-// CHANGED: Using randomAccount.username instead of bot.username to prevent ReferenceError
+// Logging the countdown every 30 minutes in logs
 const logInterval = setInterval(() => {
-    const remaining = Math.round((endTime - Date.now()) / 1000 / 60);
+    const remaining = Math.round((endTime.getTime() - Date.now()) / 1000 / 60);
     if (remaining > 0) {
         console.log(`\x1b[34m[STATUS] ${randomAccount.username} is active. ${remaining} minutes until next identity swap.\x1b[0m`);
     }
-}, 15 * 60 * 1000); 
+}, 30 * 60 * 1000); 
 
 // The actual identity swap trigger
 setTimeout(() => { 
