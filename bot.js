@@ -19,9 +19,9 @@ const accountsData = JSON.parse(fs.readFileSync('./launcher-accounts.json', 'utf
 const accounts = accountsData.accounts;
 const randomAccount = accounts[Math.floor(Math.random() * accounts.length)];
 
-// Shorter Duration Logic (15 to 60 minutes)
-const minMinutes = 15;
-const maxMinutes = 60; 
+// Duration Logic (30 to 240 minutes)
+const minMinutes = 30;
+const maxMinutes = 240; 
 const randomMinutes = Math.floor(Math.random() * (maxMinutes - minMinutes + 1) + minMinutes);
 const endTime = Date.now() + (randomMinutes * 60 * 1000);
 
