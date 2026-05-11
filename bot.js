@@ -97,23 +97,19 @@ function createBot() {
         console.log(`\x1b[31m[ERROR] Connection Error: ${err.message}\x1b[0m`);
     });
 
-    // --- ENHANCED MESSAGE SCANNER ---
-    bot.on('message', async (jsonMsg) => {
-        const rawText = jsonMsg.toString();
-        if (!rawText || rawText.trim().length < 2) return;
+    // --- ENHANCED MESSAGE SCANNER (FIXED FOR IN-GAME REPLIES) ---
+    bot.on('messagestr', async (message) => {
+        const rawText = message.trim();
+        if (!rawText || rawText.length < 2) return;
 
         // SKIP IF BOT IS THE ONE TALKING
         if (rawText.includes(bot.username)) return;
 
-        // 1. EXTRACT USERNAME
-        let sender = "Player";
-        const match = rawText.match(/<([^>]+)>/) || rawText.match(/([a-zA-Z0-9_]{3,16})(?=\s*[:»>])/) || rawText.match(/\]\s*([a-zA-Z0-9_]{3,16})/);
-        
-        if (match) {
-            sender = match[1].replace(/[<>\[\]]/g, '').trim();
-        }
-
         const lowerMessage = rawText.toLowerCase();
+
+        // 1. SENDER DETECTION (Handles prefixes like [Owner] Vartiax:)
+        const nameMatch = rawText.match(/([a-zA-Z0-9_]{3,16})(?=\s*[:»>])/);
+        const sender = nameMatch ? nameMatch[1] : "Player";
 
         // 2. PROFANITY FILTER
         if (badWords.some(word => lowerMessage.includes(word))) {
@@ -125,7 +121,7 @@ function createBot() {
         // 3. AI BRAIN TRIGGER
         if (lowerMessage.includes('!ask') || lowerMessage.includes(bot.username.toLowerCase())) {
             
-            console.log(`\x1b[36m[AI] Request received from ${sender}: "${rawText.substring(0, 60)}..."\x1b[0m`);
+            console.log(`\x1b[36m[AI] Request received from ${sender}: "${rawText}"\x1b[0m`);
 
             // Clean the prompt
             const cleanPrompt = rawText.replace(new RegExp(`!ask|${bot.username}`, 'gi'), '').trim();
@@ -141,21 +137,25 @@ function createBot() {
                           role: "system", 
                           content: `You are a professional Minecraft assistant named ${bot.username}. 
                           - Your administrator and creator is Vartiax. 
-                          - Address the person talking to you by their name (the one provided in the context). 
+                          - Address the person talking to you by their name (${sender}). 
                           - You have full memory of the last 50 messages. Reference them to answer "follow-up" questions.
                           - You can answer ANY topic (science, math, coding, life).
-                          - Style: Mature, professional. Max 180 chars.` 
+                          - Style: Mature, professional. Max 180 chars. Do not use line breaks.` 
                         },
-                        ...conversationHistory
+                        ...conversationHistory.slice(-15) // Limit history sent to Groq for speed/stability
                     ],
                     model: "llama-3.3-70b-versatile",
                 });
 
                 const responseText = chatCompletion.choices[0].message.content;
-                const finalReply = responseText.replace(/\n/g, ' ').substring(0, 255);
+                // CLEANING: Strip newlines and extra quotes that break Minecraft chat packets
+                const finalReply = responseText.replace(/[\n\r"]/g, ' ').substring(0, 255);
                 
-                bot.chat(finalReply);
-                console.log(`\x1b[36m[AI] Sent reply to ${sender}\x1b[0m`);
+                // DELAYED SEND: Prevents anti-spam plugins from shadow-banning the bot
+                setTimeout(() => {
+                    bot.chat(finalReply);
+                    console.log(`\x1b[32m[SENT] Reply to ${sender}: ${finalReply}\x1b[0m`);
+                }, 1500);
 
                 // Remember the bot's own reply
                 conversationHistory.push({ role: "assistant", content: finalReply });
