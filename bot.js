@@ -59,7 +59,7 @@ function checkProfanity(text) {
         // English
         /niga/, /nigr/, /nigga/, /negr/, 
         /fuck/, /fvck/, /phuck/, /bitch/, /shit/, /asshol/, /cunt/, /slut/, /whore/,
-        /kys/, /suicid/, /seedcrack/, /s+e+e+d+c+r+a+c+k/, /seedcrack
+        /kys/, /suicid/, /seedcrack/, /s+e+e+d+c+r+a+c+k/
         
         // Hindi
         /chutiya/, /choot/, /chuda/, 
