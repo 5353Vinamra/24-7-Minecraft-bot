@@ -39,19 +39,27 @@ const istTimeDisplay = new Date(endTime.getTime() + istOffset).toLocaleTimeStrin
 console.log(`\x1b[35m[SYSTEM] Active Identity: ${randomAccount.username} ${specificAccount ? '(SUMMONED)' : ''}\x1b[0m`);
 console.log(`\x1b[35m[SYSTEM] Swap Scheduled: ${istTimeDisplay} IST\x1b[0m`);
 
-// --- THE IRON WALL PROFANITY SYSTEM ---
+// --- LAYER 1: THE IRON WALL (LOCAL FILTER + WHITELIST) ---
 function checkProfanity(text) {
     let lower = text.toLowerCase();
     
-    // 1. Decrypt Leetspeak
+    // THE WHITELIST: Protects harmless phrases BEFORE they ever trigger the filter
+    const whitelist = [
+        /it'?s\s*hit/, /hit\s*n\s*try/, /glass/, /classic/, /grass/, /pass/
+    ];
+    if (whitelist.some(safe => safe.test(lower))) {
+        return false; // Safe phrase detected, ignore completely
+    }
+    
+    // Decrypt Leetspeak
     let leetMap = { '0': 'o', '1': 'i', '!': 'i', '|': 'i', '3': 'e', '4': 'a', '@': 'a', '5': 's', '$': 's', '7': 't', '+': 't' };
     let normalized = lower.replace(/[01!|34@5$7+]/g, m => leetMap[m] || m);
     
-    // 2. Strip non-alphabet characters and crush repeated letters
+    // Strip non-alphabet characters and crush repeated letters
     let stripped = normalized.replace(/[^a-z]/g, '');
     let squeezed = stripped.replace(/(.)\1+/g, '$1');
 
-    // 3. Finalized Root Dictionary (Phonetic & Visual Bypass Roots)
+    // Finalized Root Dictionary
     const badRoots = [
         /niga/, /nigr/, /nigga/, /negr/, /fuck/, /fvck/, /phuck/, /bitch/, /shit/, /asshol/, /cunt/, /slut/, /whore/,
         /kys/, /suicid/, /seedcrack/, /s+e+e+d+c+r+a+c+k/,
@@ -107,18 +115,20 @@ function createBot() {
         const rawText = message.trim();
         if (!rawText || rawText.includes(bot.username)) return;
 
-        // 1. SENDER DETECTION (Handles plugin prefixes)
+        // 1. SENDER DETECTION 
         const nameMatch = rawText.match(/([a-zA-Z0-9_]{3,16})(?=\s*[:»>])/);
         const sender = nameMatch ? nameMatch[1] : "Player";
         const lowerMessage = rawText.toLowerCase();
 
-        // 2. AI-POWERED MODERATION FILTER
+        // --- LAYER 2: AI-POWERED MODERATION (WITH STRICT FALLBACK) ---
         if (checkProfanity(rawText)) {
             if (sender.toLowerCase() === "vartiax") {
                 console.log(`\x1b[33m[SHIELD] Vartiax used flagged language. Bypass granted.\x1b[0m`);
             } else {
-                console.log(`\x1b[33m[MODERATION] Regex flagged a message from ${sender}. Asking AI for a second opinion...\x1b[0m`);
-                let shouldBan = false;
+                console.log(`\x1b[33m[MODERATION] Local filter flagged ${sender}. Asking AI for a second opinion...\x1b[0m`);
+                
+                // CRITICAL FIX: Default is now TRUE. We only abort the ban if AI explicitly says "CLEAR".
+                let shouldBan = true;
 
                 try {
                     const aiModerator = await groq.chat.completions.create({
@@ -130,22 +140,22 @@ function createBot() {
                             { role: "user", content: rawText }
                         ],
                         model: "llama-3.3-70b-versatile",
-                        temperature: 0.1, // Low temperature makes the AI more strict and consistent
+                        temperature: 0.1, 
                         max_tokens: 5
                     });
 
                     const decision = aiModerator.choices[0].message.content.trim().toUpperCase();
-                    if (decision.includes("BAN")) {
-                        shouldBan = true;
+                    if (decision.includes("CLEAR")) {
+                        shouldBan = false; // AI connected and successfully saved the player
                     }
                 } catch (e) {
-                    console.error(`\x1b[31m[AI ERROR] Moderation API failed. Defaulting to CLEAR to prevent unfair bans.\x1b[0m`);
-                    shouldBan = false; // AI is unavailable, let them off the hook
+                    console.error(`\x1b[31m[AI ERROR] Moderation API unavailable. Falling back to Local Filter (BAN).\x1b[0m`);
+                    // shouldBan remains true, ensuring abusers don't get a free pass just because the API is down
                 }
 
                 if (shouldBan) {
-                    console.log(`\x1b[31m[BAN] AI confirmed toxicity by: ${sender}. Tempbanning 1h.\x1b[0m`);
-                    bot.chat(`Filter bypass detected and verified by AI. ${sender} is banned for 1 hour.`);
+                    console.log(`\x1b[31m[BAN] Toxicity confirmed by AI or Local Filter. Tempbanning 1h.\x1b[0m`);
+                    bot.chat(`Filter bypass detected. ${sender} is banned for 1 hour.`);
                     setTimeout(() => { bot.chat(`/tempban ${sender} 1h Automated Filter: Abusive Language`); }, 500);
                     return; // Stop processing this message entirely
                 } else {
