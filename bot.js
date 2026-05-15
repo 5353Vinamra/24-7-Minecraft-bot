@@ -112,16 +112,46 @@ function createBot() {
         const sender = nameMatch ? nameMatch[1] : "Player";
         const lowerMessage = rawText.toLowerCase();
 
-        // 2. THE IRON WALL FILTER (Priority check before AI or Commands)
+        // 2. AI-POWERED MODERATION FILTER
         if (checkProfanity(rawText)) {
             if (sender.toLowerCase() === "vartiax") {
-                console.log(`\x1b[33m[SHIELD] Vartiax bypass granted.\x1b[0m`);
-                return;
+                console.log(`\x1b[33m[SHIELD] Vartiax used flagged language. Bypass granted.\x1b[0m`);
+            } else {
+                console.log(`\x1b[33m[MODERATION] Regex flagged a message from ${sender}. Asking AI for a second opinion...\x1b[0m`);
+                let shouldBan = false;
+
+                try {
+                    const aiModerator = await groq.chat.completions.create({
+                        messages: [
+                            { 
+                              role: "system", 
+                              content: "You are a fair chat moderator. A local regex filter flagged the following message. Is it genuinely toxic, abusive, or a slur? Answer ONLY with the exact word 'BAN' if it is malicious, or 'CLEAR' if it is innocent, a false positive (like 'it's hit' triggering 'shit'), or mild. If unsure, answer 'CLEAR'." 
+                            },
+                            { role: "user", content: rawText }
+                        ],
+                        model: "llama-3.3-70b-versatile",
+                        temperature: 0.1, // Low temperature makes the AI more strict and consistent
+                        max_tokens: 5
+                    });
+
+                    const decision = aiModerator.choices[0].message.content.trim().toUpperCase();
+                    if (decision.includes("BAN")) {
+                        shouldBan = true;
+                    }
+                } catch (e) {
+                    console.error(`\x1b[31m[AI ERROR] Moderation API failed. Defaulting to CLEAR to prevent unfair bans.\x1b[0m`);
+                    shouldBan = false; // AI is unavailable, let them off the hook
+                }
+
+                if (shouldBan) {
+                    console.log(`\x1b[31m[BAN] AI confirmed toxicity by: ${sender}. Tempbanning 1h.\x1b[0m`);
+                    bot.chat(`Filter bypass detected and verified by AI. ${sender} is banned for 1 hour.`);
+                    setTimeout(() => { bot.chat(`/tempban ${sender} 1h Automated Filter: Abusive Language`); }, 500);
+                    return; // Stop processing this message entirely
+                } else {
+                    console.log(`\x1b[32m[CLEAR] AI recognized a false positive. Message allowed.\x1b[0m`);
+                }
             }
-            console.log(`\x1b[31m[BAN] Filter hit by: ${sender}. Tempbanning 1h.\x1b[0m`);
-            bot.chat(`Filter bypass detected. ${sender} is banned for 1 hour.`);
-            setTimeout(() => { bot.chat(`/tempban ${sender} 1h Automated Filter: Abusive Language`); }, 500);
-            return;
         }
 
         // 3. ADMIN COMMAND: !summon <bot_name> (Vartiax only)
