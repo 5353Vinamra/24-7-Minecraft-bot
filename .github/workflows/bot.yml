@@ -27,7 +27,7 @@ jobs:
           SERVER_PORT: ${{ secrets.SERVER_PORT }}
           BOT_PASSWORD: ${{ secrets.BOT_PASSWORD }}
           AUTO_AUTH_PASSWORD: ${{ secrets.AUTO_AUTH_PASSWORD }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           while true; do
             node bot.js
