@@ -179,12 +179,11 @@ function createBot() {
             conversationHistory.push(userMessage);
 
             try {
-               const chatModel = genAI.getGenerativeModel({
-                    model: "gemini-1.5-pro",
-                    tools: [{ googleSearch: {} }], // Enables native web search
+                const chatModel = genAI.getGenerativeModel({
+                    model: "gemini-1.5-flash", // Switched to the universally unlocked free-tier model
+                    // tools: [{ googleSearch: {} }], // Temporarily disabled to prevent Google from blocking the request
                     systemInstruction: `You are a highly intelligent Minecraft assistant named ${bot.username}. Creator: Vartiax. 
                     You have expert knowledge of modern Minecraft versions (1.21+), PvP mechanics, plugins, and redstone.
-                    If asked about recent updates or something you don't know, use Google Search to find the answer.
                     Address the user as ${sender}. Keep your response under 150 characters. No newlines or special formatting.`
                 });
 
