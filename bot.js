@@ -133,7 +133,7 @@ function createBot() {
                 let shouldBan = true; // Default to TRUE for strict fallback
 
                 try {
-                    const modModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                    const modModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
                     const modPrompt = `You are a fair chat moderator. A local regex filter flagged the following message. Is it genuinely toxic, abusive, or a slur? Answer ONLY with the exact word 'BAN' if it is malicious, or 'CLEAR' if it is innocent, a false positive (like 'it's hit' triggering 'shit'), or mild. If unsure, answer 'CLEAR'.\n\nMessage: "${rawText}"`;
                     
                     const modResult = await modModel.generateContent(modPrompt);
