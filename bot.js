@@ -3,16 +3,18 @@ const express = require('express');
 const fs = require('fs');
 const mineflayer = require('mineflayer');
 const { pathfinder } = require('mineflayer-pathfinder');
-const Groq = require("groq-sdk");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 // --- Web Server (Keeps the GitHub runner alive) ---
 const app = express();
 const port = 3000;
-app.get('/', (req, res) => res.send("Vartiax Bot System Active."));
+app.get('/', (req, res) => res.send("Vartiax Gemini AI System Active."));
 app.listen(port, () => console.log("<------------------------------------->"));
 
 const config = require('./settings.json');
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+// --- INITIALIZE GOOGLE GEMINI AI ---
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // --- IDENTITY SWAP & SUMMON LOGIC ---
 const accountsData = JSON.parse(fs.readFileSync('./launcher-accounts.json', 'utf8'));
@@ -71,8 +73,9 @@ function checkProfanity(text) {
 }
 
 // --- MEMORY SYSTEM ---
+// Gemini requires a specific array format: { role: "user" | "model", parts: [{ text: "..." }] }
 let conversationHistory = []; 
-const MAX_HISTORY = 50; 
+const MAX_HISTORY = 30; // Increased because Gemini handles large memory easily
 
 function createBot() {
     const bot = mineflayer.createBot({
@@ -120,37 +123,27 @@ function createBot() {
         const sender = nameMatch ? nameMatch[1] : "Player";
         const lowerMessage = rawText.toLowerCase();
 
-        // --- LAYER 2: AI-POWERED MODERATION (WITH STRICT FALLBACK) ---
+        // --- LAYER 2: AI-POWERED MODERATION (WITH GEMINI 1.5 FLASH) ---
         if (checkProfanity(rawText)) {
             if (sender.toLowerCase() === "vartiax") {
                 console.log(`\x1b[33m[SHIELD] Vartiax used flagged language. Bypass granted.\x1b[0m`);
             } else {
-                console.log(`\x1b[33m[MODERATION] Local filter flagged ${sender}. Asking AI for a second opinion...\x1b[0m`);
+                console.log(`\x1b[33m[MODERATION] Local filter flagged ${sender}. Asking Gemini Flash for a second opinion...\x1b[0m`);
                 
-                // CRITICAL FIX: Default is now TRUE. We only abort the ban if AI explicitly says "CLEAR".
-                let shouldBan = true;
+                let shouldBan = true; // Default to TRUE for strict fallback
 
                 try {
-                    const aiModerator = await groq.chat.completions.create({
-                        messages: [
-                            { 
-                              role: "system", 
-                              content: "You are a fair chat moderator. A local regex filter flagged the following message. Is it genuinely toxic, abusive, or a slur? Answer ONLY with the exact word 'BAN' if it is malicious, or 'CLEAR' if it is innocent, a false positive (like 'it's hit' triggering 'shit'), or mild. If unsure, answer 'CLEAR'." 
-                            },
-                            { role: "user", content: rawText }
-                        ],
-                        model: "llama-3.3-70b-versatile",
-                        temperature: 0.1, 
-                        max_tokens: 5
-                    });
+                    const modModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                    const modPrompt = `You are a fair chat moderator. A local regex filter flagged the following message. Is it genuinely toxic, abusive, or a slur? Answer ONLY with the exact word 'BAN' if it is malicious, or 'CLEAR' if it is innocent, a false positive (like 'it's hit' triggering 'shit'), or mild. If unsure, answer 'CLEAR'.\n\nMessage: "${rawText}"`;
+                    
+                    const modResult = await modModel.generateContent(modPrompt);
+                    const decision = modResult.response.text().trim().toUpperCase();
 
-                    const decision = aiModerator.choices[0].message.content.trim().toUpperCase();
                     if (decision.includes("CLEAR")) {
                         shouldBan = false; // AI connected and successfully saved the player
                     }
                 } catch (e) {
                     console.error(`\x1b[31m[AI ERROR] Moderation API unavailable. Falling back to Local Filter (BAN).\x1b[0m`);
-                    // shouldBan remains true, ensuring abusers don't get a free pass just because the API is down
                 }
 
                 if (shouldBan) {
@@ -177,30 +170,46 @@ function createBot() {
             return;
         }
 
-        // 4. GROQ AI RESPONDER
+        // --- LAYER 4: GEMINI 1.5 PRO RESPONDER (WITH WEB SEARCH) ---
         if (lowerMessage.includes('!ask') || lowerMessage.includes(bot.username.toLowerCase())) {
             const cleanPrompt = rawText.replace(new RegExp(`!ask|${bot.username}`, 'gi'), '').trim();
-            conversationHistory.push({ role: "user", content: `Player ${sender} says: ${cleanPrompt}` });
+            
+            // Format the user's message for Gemini's history array
+            const userMessage = { role: "user", parts: [{ text: `Player ${sender} says: ${cleanPrompt}` }] };
+            conversationHistory.push(userMessage);
 
             try {
-                const chatCompletion = await groq.chat.completions.create({
-                    messages: [
-                        { 
-                          role: "system", 
-                          content: `You are a Minecraft assistant named ${bot.username}. Creator: Vartiax. Address the user as ${sender}. Max 150 chars. No newlines.` 
-                        },
-                        ...conversationHistory.slice(-10)
-                    ],
-                    model: "llama-3.3-70b-versatile",
+                const chatModel = genAI.getGenerativeModel({
+                    model: "gemini-1.5-pro",
+                    tools: [{ googleSearch: {} }], // Enables native web search
+                    systemInstruction: `You are a highly intelligent Minecraft assistant named ${bot.username}. Creator: Vartiax. 
+                    You have expert knowledge of modern Minecraft versions (1.21+), PvP mechanics, plugins, and redstone.
+                    If asked about recent updates or something you don't know, use Google Search to find the answer.
+                    Address the user as ${sender}. Keep your response under 150 characters. No newlines or special formatting.`
                 });
 
-                const finalReply = chatCompletion.choices[0].message.content.replace(/[\n\r"]/g, ' ').substring(0, 255);
+                console.log(`\x1b[34m[AI] Processing complex request with Web Search capability...\x1b[0m`);
+                
+                // Pass the entire conversation history context to the model
+                const chatResult = await chatModel.generateContent({
+                    contents: conversationHistory
+                });
+
+                const finalReply = chatResult.response.text().replace(/[\n\r"]/g, ' ').substring(0, 255);
                 setTimeout(() => { bot.chat(finalReply); }, 1500);
-                conversationHistory.push({ role: "assistant", content: finalReply });
-                if (conversationHistory.length > MAX_HISTORY) conversationHistory.shift();
+                
+                // Save the model's reply to the history
+                conversationHistory.push({ role: "model", parts: [{ text: finalReply }] });
+                
+                // Keep the array size manageable (remove oldest pairs: user + model)
+                if (conversationHistory.length > MAX_HISTORY * 2) {
+                    conversationHistory.splice(0, 2);
+                }
 
             } catch (e) { 
                 console.error(`\x1b[31m[AI ERROR] ${e.message}\x1b[0m`); 
+                // If it fails, remove the user message so it doesn't break the sequence loop
+                conversationHistory.pop();
             }
         }
     });
