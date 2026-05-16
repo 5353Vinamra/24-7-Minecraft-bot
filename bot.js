@@ -179,8 +179,8 @@ function createBot() {
             conversationHistory.push(userMessage);
 
             try {
-                const chatModel = genAI.getGenerativeModel({
-                    model: "gemini-1.5-pro",
+               const chatModel = genAI.getGenerativeModel({
+                    model: "gemini-1.5-pro-latest",
                     tools: [{ googleSearch: {} }], // Enables native web search
                     systemInstruction: `You are a highly intelligent Minecraft assistant named ${bot.username}. Creator: Vartiax. 
                     You have expert knowledge of modern Minecraft versions (1.21+), PvP mechanics, plugins, and redstone.
