@@ -123,7 +123,7 @@ function createBot() {
         const sender = nameMatch ? nameMatch[1] : "Player";
         const lowerMessage = rawText.toLowerCase();
 
-        // --- LAYER 2: AI-POWERED MODERATION (WITH GEMINI 1.5 FLASH) ---
+        // --- LAYER 2: AI-POWERED MODERATION (WITH GEMINI 2.5 FLASH) ---
         if (checkProfanity(rawText)) {
             if (sender.toLowerCase() === "vartiax") {
                 console.log(`\x1b[33m[SHIELD] Vartiax used flagged language. Bypass granted.\x1b[0m`);
@@ -133,7 +133,8 @@ function createBot() {
                 let shouldBan = true; // Default to TRUE for strict fallback
 
                 try {
-                    const modModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                    // UPDATED: Pointing directly to the active 2026 Flash endpoint
+                    const modModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
                     const modPrompt = `You are a fair chat moderator. A local regex filter flagged the following message. Is it genuinely toxic, abusive, or a slur? Answer ONLY with the exact word 'BAN' if it is malicious, or 'CLEAR' if it is innocent, a false positive (like 'it's hit' triggering 'shit'), or mild. If unsure, answer 'CLEAR'.\n\nMessage: "${rawText}"`;
                     
                     const modResult = await modModel.generateContent(modPrompt);
@@ -170,7 +171,7 @@ function createBot() {
             return;
         }
 
-        // --- LAYER 4: GEMINI 1.5 PRO RESPONDER (WITH WEB SEARCH) ---
+        // --- LAYER 4: GEMINI 2.5 FLASH RESPONDER (WITH SAFE DEFAULTS) ---
         if (lowerMessage.includes('!ask') || lowerMessage.includes(bot.username.toLowerCase())) {
             const cleanPrompt = rawText.replace(new RegExp(`!ask|${bot.username}`, 'gi'), '').trim();
             
@@ -180,14 +181,15 @@ function createBot() {
 
             try {
                 const chatModel = genAI.getGenerativeModel({
-                    model: "gemini-1.5-flash", // Switched to the universally unlocked free-tier model
-                    // tools: [{ googleSearch: {} }], // Temporarily disabled to prevent Google from blocking the request
+                    // UPDATED: Pointing directly to the active 2026 Flash endpoint
+                    model: "gemini-2.5-flash",
+                    // tools: [{ googleSearch: {} }], // Temporarily disabled to prevent Google from blocking the free-tier request
                     systemInstruction: `You are a highly intelligent Minecraft assistant named ${bot.username}. Creator: Vartiax. 
                     You have expert knowledge of modern Minecraft versions (1.21+), PvP mechanics, plugins, and redstone.
                     Address the user as ${sender}. Keep your response under 150 characters. No newlines or special formatting.`
                 });
 
-                console.log(`\x1b[34m[AI] Processing complex request with Web Search capability...\x1b[0m`);
+                console.log(`\x1b[34m[AI] Processing complex request...\x1b[0m`);
                 
                 // Pass the entire conversation history context to the model
                 const chatResult = await chatModel.generateContent({
