@@ -45,23 +45,19 @@ console.log(`\x1b[35m[SYSTEM] Swap Scheduled: ${istTimeDisplay} IST\x1b[0m`);
 function checkProfanity(text) {
     let lower = text.toLowerCase();
     
-    // THE WHITELIST: Protects harmless phrases BEFORE they ever trigger the filter
     const whitelist = [
         /it'?s\s*hit/, /hit\s*n\s*try/, /glass/, /classic/, /grass/, /pass/
     ];
     if (whitelist.some(safe => safe.test(lower))) {
-        return false; // Safe phrase detected, ignore completely
+        return false; 
     }
     
-    // Decrypt Leetspeak
     let leetMap = { '0': 'o', '1': 'i', '!': 'i', '|': 'i', '3': 'e', '4': 'a', '@': 'a', '5': 's', '$': 's', '7': 't', '+': 't' };
     let normalized = lower.replace(/[01!|34@5$7+]/g, m => leetMap[m] || m);
     
-    // Strip non-alphabet characters and crush repeated letters
     let stripped = normalized.replace(/[^a-z]/g, '');
     let squeezed = stripped.replace(/(.)\1+/g, '$1');
 
-    // Finalized Root Dictionary
     const badRoots = [
         /niga/, /nigr/, /nigga/, /negr/, /fuck/, /fvck/, /phuck/, /bitch/, /shit/, /asshol/, /cunt/, /slut/, /whore/,
         /kys/, /suicid/, /seedcrack/, /s+e+e+d+c+r+a+c+k/,
@@ -73,9 +69,8 @@ function checkProfanity(text) {
 }
 
 // --- MEMORY SYSTEM ---
-// Gemini requires a specific array format: { role: "user" | "model", parts: [{ text: "..." }] }
 let conversationHistory = []; 
-const MAX_HISTORY = 30; // Increased because Gemini handles large memory easily
+const MAX_HISTORY = 30; 
 
 function createBot() {
     const bot = mineflayer.createBot({
@@ -118,30 +113,29 @@ function createBot() {
         const rawText = message.trim();
         if (!rawText || rawText.includes(bot.username)) return;
 
-        // 1. SENDER DETECTION 
         const nameMatch = rawText.match(/([a-zA-Z0-9_]{3,16})(?=\s*[:»>])/);
         const sender = nameMatch ? nameMatch[1] : "Player";
         const lowerMessage = rawText.toLowerCase();
 
-        // --- LAYER 2: AI-POWERED MODERATION (WITH GEMINI 2.5 FLASH) ---
+        // --- LAYER 2: AI-POWERED MODERATION (REAL GEMINI 1.5 FLASH) ---
         if (checkProfanity(rawText)) {
             if (sender.toLowerCase() === "vartiax") {
                 console.log(`\x1b[33m[SHIELD] Vartiax used flagged language. Bypass granted.\x1b[0m`);
             } else {
-                console.log(`\x1b[33m[MODERATION] Local filter flagged ${sender}. Asking Gemini Flash for a second opinion...\x1b[0m`);
+                console.log(`\x1b[33m[MODERATION] Local filter flagged ${sender}. Asking AI for a second opinion...\x1b[0m`);
                 
-                let shouldBan = true; // Default to TRUE for strict fallback
+                let shouldBan = true; 
 
                 try {
-                    // UPDATED: Pointing directly to the active 2026 Flash endpoint
-                    const modModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+                    // Uses the real, currently available flash model
+                    const modModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
                     const modPrompt = `You are a fair chat moderator. A local regex filter flagged the following message. Is it genuinely toxic, abusive, or a slur? Answer ONLY with the exact word 'BAN' if it is malicious, or 'CLEAR' if it is innocent, a false positive (like 'it's hit' triggering 'shit'), or mild. If unsure, answer 'CLEAR'.\n\nMessage: "${rawText}"`;
                     
                     const modResult = await modModel.generateContent(modPrompt);
                     const decision = modResult.response.text().trim().toUpperCase();
 
                     if (decision.includes("CLEAR")) {
-                        shouldBan = false; // AI connected and successfully saved the player
+                        shouldBan = false; 
                     }
                 } catch (e) {
                     console.error(`\x1b[31m[AI ERROR] Moderation API unavailable. Falling back to Local Filter (BAN).\x1b[0m`);
@@ -151,7 +145,7 @@ function createBot() {
                     console.log(`\x1b[31m[BAN] Toxicity confirmed by AI or Local Filter. Tempbanning 1h.\x1b[0m`);
                     bot.chat(`Filter bypass detected. ${sender} is banned for 1 hour.`);
                     setTimeout(() => { bot.chat(`/tempban ${sender} 1h Automated Filter: Abusive Language`); }, 500);
-                    return; // Stop processing this message entirely
+                    return; 
                 } else {
                     console.log(`\x1b[32m[CLEAR] AI recognized a false positive. Message allowed.\x1b[0m`);
                 }
@@ -171,27 +165,27 @@ function createBot() {
             return;
         }
 
-        // --- LAYER 4: GEMINI 2.5 FLASH RESPONDER (WITH SAFE DEFAULTS) ---
+        // --- LAYER 4: REAL AI RESPONDER WITH ACTIVE WEB SEARCH ---
         if (lowerMessage.includes('!ask') || lowerMessage.includes(bot.username.toLowerCase())) {
             const cleanPrompt = rawText.replace(new RegExp(`!ask|${bot.username}`, 'gi'), '').trim();
             
-            // Format the user's message for Gemini's history array
             const userMessage = { role: "user", parts: [{ text: `Player ${sender} says: ${cleanPrompt}` }] };
             conversationHistory.push(userMessage);
 
             try {
                 const chatModel = genAI.getGenerativeModel({
-                    // UPDATED: Pointing directly to the active 2026 Flash endpoint
-                    model: "gemini-2.5-flash",
-                    // tools: [{ googleSearch: {} }], // Temporarily disabled to prevent Google from blocking the free-tier request
+                    // Uses the universally available 1.5 Flash model to prevent 404 errors
+                    model: "gemini-1.5-flash",
+                    // LIVE WEB SEARCH IS UNCOMMENTED AND ACTIVE
+                    tools: [{ googleSearch: {} }], 
                     systemInstruction: `You are a highly intelligent Minecraft assistant named ${bot.username}. Creator: Vartiax. 
-                    You have expert knowledge of modern Minecraft versions (1.21+), PvP mechanics, plugins, and redstone.
+                    You have expert knowledge of modern Minecraft versions, PvP mechanics, plugins, and redstone.
+                    If the user asks about something recent, real-world events, or facts you do not know, use your Google Search tool to look up the correct information. Do not guess or hallucinate features.
                     Address the user as ${sender}. Keep your response under 150 characters. No newlines or special formatting.`
                 });
 
-                console.log(`\x1b[34m[AI] Processing complex request...\x1b[0m`);
+                console.log(`\x1b[34m[AI] Processing request with live Google Search...\x1b[0m`);
                 
-                // Pass the entire conversation history context to the model
                 const chatResult = await chatModel.generateContent({
                     contents: conversationHistory
                 });
@@ -199,17 +193,14 @@ function createBot() {
                 const finalReply = chatResult.response.text().replace(/[\n\r"]/g, ' ').substring(0, 255);
                 setTimeout(() => { bot.chat(finalReply); }, 1500);
                 
-                // Save the model's reply to the history
                 conversationHistory.push({ role: "model", parts: [{ text: finalReply }] });
                 
-                // Keep the array size manageable (remove oldest pairs: user + model)
                 if (conversationHistory.length > MAX_HISTORY * 2) {
                     conversationHistory.splice(0, 2);
                 }
 
             } catch (e) { 
                 console.error(`\x1b[31m[AI ERROR] ${e.message}\x1b[0m`); 
-                // If it fails, remove the user message so it doesn't break the sequence loop
                 conversationHistory.pop();
             }
         }
