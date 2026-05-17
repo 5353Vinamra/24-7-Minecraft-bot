@@ -117,7 +117,7 @@ function createBot() {
         const sender = nameMatch ? nameMatch[1] : "Player";
         const lowerMessage = rawText.toLowerCase();
 
-        // --- LAYER 2: AI-POWERED MODERATION (REAL GEMINI 1.5 FLASH) ---
+        // --- LAYER 2: AI-POWERED MODERATION (ACTIVE 2026 FLASH MODEL) ---
         if (checkProfanity(rawText)) {
             if (sender.toLowerCase() === "vartiax") {
                 console.log(`\x1b[33m[SHIELD] Vartiax used flagged language. Bypass granted.\x1b[0m`);
@@ -127,8 +127,8 @@ function createBot() {
                 let shouldBan = true; 
 
                 try {
-                    // Uses the real, currently available flash model
-                    const modModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                    // Correct 2026 endpoint
+                    const modModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
                     const modPrompt = `You are a fair chat moderator. A local regex filter flagged the following message. Is it genuinely toxic, abusive, or a slur? Answer ONLY with the exact word 'BAN' if it is malicious, or 'CLEAR' if it is innocent, a false positive (like 'it's hit' triggering 'shit'), or mild. If unsure, answer 'CLEAR'.\n\nMessage: "${rawText}"`;
                     
                     const modResult = await modModel.generateContent(modPrompt);
@@ -174,9 +174,8 @@ function createBot() {
 
             try {
                 const chatModel = genAI.getGenerativeModel({
-                    // Uses the universally available 1.5 Flash model to prevent 404 errors
-                    model: "gemini-1.5-flash",
-                    // LIVE WEB SEARCH IS UNCOMMENTED AND ACTIVE
+                    // The correct, active 2026 stable model
+                    model: "gemini-2.5-flash",
                     tools: [{ googleSearch: {} }], 
                     systemInstruction: `You are a highly intelligent Minecraft assistant named ${bot.username}. Creator: Vartiax. 
                     You have expert knowledge of modern Minecraft versions, PvP mechanics, plugins, and redstone.
