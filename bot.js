@@ -14,6 +14,7 @@ app.listen(port, () => console.log("<------------------------------------->"));
 const config = require('./settings.json');
 
 // --- INITIALIZE GOOGLE GEMINI AI ---
+// This automatically pulls the 'GEMINI_API_KEY' from your GitHub Secrets
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // --- IDENTITY SWAP & SUMMON LOGIC ---
@@ -117,7 +118,7 @@ function createBot() {
         const sender = nameMatch ? nameMatch[1] : "Player";
         const lowerMessage = rawText.toLowerCase();
 
-        // --- LAYER 2: AI-POWERED MODERATION (ACTIVE 2026 FLASH MODEL) ---
+        // --- LAYER 2: AI-POWERED MODERATION (HIGH-CAPACITY LITE TIER) ---
         if (checkProfanity(rawText)) {
             if (sender.toLowerCase() === "vartiax") {
                 console.log(`\x1b[33m[SHIELD] Vartiax used flagged language. Bypass granted.\x1b[0m`);
@@ -127,8 +128,7 @@ function createBot() {
                 let shouldBan = true; 
 
                 try {
-                    // Correct 2026 endpoint
-                    const modModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+                    const modModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
                     const modPrompt = `You are a fair chat moderator. A local regex filter flagged the following message. Is it genuinely toxic, abusive, or a slur? Answer ONLY with the exact word 'BAN' if it is malicious, or 'CLEAR' if it is innocent, a false positive (like 'it's hit' triggering 'shit'), or mild. If unsure, answer 'CLEAR'.\n\nMessage: "${rawText}"`;
                     
                     const modResult = await modModel.generateContent(modPrompt);
@@ -165,7 +165,7 @@ function createBot() {
             return;
         }
 
-        // --- LAYER 4: REAL AI RESPONDER WITH ACTIVE WEB SEARCH ---
+        // --- LAYER 4: REAL AI RESPONDER (HIGH-CAPACITY LITE TIER WITH WEB SEARCH) ---
         if (lowerMessage.includes('!ask') || lowerMessage.includes(bot.username.toLowerCase())) {
             const cleanPrompt = rawText.replace(new RegExp(`!ask|${bot.username}`, 'gi'), '').trim();
             
@@ -174,8 +174,7 @@ function createBot() {
 
             try {
                 const chatModel = genAI.getGenerativeModel({
-                    // The correct, active 2026 stable model
-                    model: "gemini-2.5-flash",
+                    model: "gemini-2.5-flash-lite",
                     tools: [{ googleSearch: {} }], 
                     systemInstruction: `You are a highly intelligent Minecraft assistant named ${bot.username}. Creator: Vartiax. 
                     You have expert knowledge of modern Minecraft versions, PvP mechanics, plugins, and redstone.
