@@ -175,10 +175,9 @@ function createBot() {
             try {
                 const chatModel = genAI.getGenerativeModel({
                     model: "gemini-2.5-flash-lite",
-                    tools: [{ googleSearch: {} }], 
+                    // I DELETED THE TOOLS LINE HERE
                     systemInstruction: `You are a highly intelligent Minecraft assistant named ${bot.username}. Creator: Vartiax. 
                     You have expert knowledge of modern Minecraft versions, PvP mechanics, plugins, and redstone.
-                    If the user asks about something recent, real-world events, or facts you do not know, use your Google Search tool to look up the correct information. Do not guess or hallucinate features.
                     Address the user as ${sender}. Keep your response under 150 characters. No newlines or special formatting.`
                 });
 
