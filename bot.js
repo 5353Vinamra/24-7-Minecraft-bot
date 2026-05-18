@@ -124,8 +124,8 @@ function createBot() {
                 let shouldBan = true; 
 
                 try {
-                    // SWITCHED TO STABLE 1.5 HIGH-VOLUME TIER
-                    const modModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                    // CORRECT, ACTIVE MODERN MODEL
+                    const modModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
                     const modPrompt = `You are a fair chat moderator. A local regex filter flagged the following message. Is it genuinely toxic, abusive, or a slur? Answer ONLY with the exact word 'BAN' if it is malicious, or 'CLEAR' if it is innocent, a false positive, or mild. If unsure, answer 'CLEAR'.\n\nMessage: "${rawText}"`;
                     
                     const modResult = await modModel.generateContent(modPrompt);
@@ -170,9 +170,9 @@ function createBot() {
             conversationHistory.push(userMessage);
 
             try {
-                // SWITCHED TO STABLE 1.5 HIGH-VOLUME TIER
+                // CORRECT, ACTIVE MODERN MODEL WITH WEB SEARCH REMOVED TO PREVENT QUOTA CAPS
                 const chatModel = genAI.getGenerativeModel({
-                    model: "gemini-1.5-flash",
+                    model: "gemini-2.5-flash",
                     systemInstruction: `You are a highly intelligent Minecraft assistant named ${bot.username}. Creator: Vartiax. 
                     You have expert knowledge of modern Minecraft versions, PvP mechanics, plugins, and redstone.
                     Address the user as ${sender}. Keep your response under 150 characters. No newlines or special formatting.`
@@ -184,7 +184,7 @@ function createBot() {
                     contents: conversationHistory
                 });
 
-                // SAFETY FAILSAFE: Prevents crash if Google refuses to answer an inappropriate question
+                // SAFETY FAILSAFE
                 if (!chatResult.response || !chatResult.response.candidates || chatResult.response.candidates.length === 0) {
                     console.log(`\x1b[33m[AI] Request blocked by Google Safety Filters.\x1b[0m`);
                     bot.chat(`Sorry ${sender}, I cannot talk about that.`);
@@ -202,7 +202,6 @@ function createBot() {
                 }
 
             } catch (e) { 
-                // Enhanced error logging to show you exactly what is failing
                 console.error(`\x1b[31m[CHAT API ERROR] ${e.status || 'UNKNOWN'}: ${e.message}\x1b[0m`); 
                 conversationHistory.pop();
             }
