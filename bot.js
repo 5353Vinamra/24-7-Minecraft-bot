@@ -14,14 +14,12 @@ app.listen(port, () => console.log("<------------------------------------->"));
 const config = require('./settings.json');
 
 // --- INITIALIZE GOOGLE GEMINI AI ---
-// This automatically pulls the 'GEMINI_API_KEY' from your GitHub Secrets
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // --- IDENTITY SWAP & SUMMON LOGIC ---
 const accountsData = JSON.parse(fs.readFileSync('./launcher-accounts.json', 'utf8'));
 const accounts = accountsData.accounts;
 
-// Check if an admin used !summon to request a specific bot
 let specificAccount = null;
 if (fs.existsSync('./.next-bot.txt')) {
     const requestedName = fs.readFileSync('./.next-bot.txt', 'utf8').trim();
@@ -29,11 +27,9 @@ if (fs.existsSync('./.next-bot.txt')) {
     fs.unlinkSync('./.next-bot.txt'); 
 }
 
-// Select the requested bot, or a random one (30m to 4h timer)
 const randomAccount = specificAccount || accounts[Math.floor(Math.random() * accounts.length)];
 const randomMinutes = Math.floor(Math.random() * (240 - 30 + 1) + 30); 
 
-// Accurate IST Calculation (UTC +5.5 hours)
 const now = new Date();
 const istOffset = 5.5 * 60 * 60 * 1000; 
 const endTime = new Date(now.getTime() + (randomMinutes * 60 * 1000));
@@ -118,18 +114,19 @@ function createBot() {
         const sender = nameMatch ? nameMatch[1] : "Player";
         const lowerMessage = rawText.toLowerCase();
 
-        // --- LAYER 2: AI-POWERED MODERATION (HIGH-CAPACITY LITE TIER) ---
+        // --- LAYER 2: AI-POWERED MODERATION ---
         if (checkProfanity(rawText)) {
             if (sender.toLowerCase() === "vartiax") {
                 console.log(`\x1b[33m[SHIELD] Vartiax used flagged language. Bypass granted.\x1b[0m`);
             } else {
-                console.log(`\x1b[33m[MODERATION] Local filter flagged ${sender}. Asking AI for a second opinion...\x1b[0m`);
+                console.log(`\x1b[33m[MODERATION] Local filter flagged ${sender}. Asking AI...\x1b[0m`);
                 
                 let shouldBan = true; 
 
                 try {
-                    const modModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
-                    const modPrompt = `You are a fair chat moderator. A local regex filter flagged the following message. Is it genuinely toxic, abusive, or a slur? Answer ONLY with the exact word 'BAN' if it is malicious, or 'CLEAR' if it is innocent, a false positive (like 'it's hit' triggering 'shit'), or mild. If unsure, answer 'CLEAR'.\n\nMessage: "${rawText}"`;
+                    // SWITCHED TO STABLE 1.5 HIGH-VOLUME TIER
+                    const modModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                    const modPrompt = `You are a fair chat moderator. A local regex filter flagged the following message. Is it genuinely toxic, abusive, or a slur? Answer ONLY with the exact word 'BAN' if it is malicious, or 'CLEAR' if it is innocent, a false positive, or mild. If unsure, answer 'CLEAR'.\n\nMessage: "${rawText}"`;
                     
                     const modResult = await modModel.generateContent(modPrompt);
                     const decision = modResult.response.text().trim().toUpperCase();
@@ -138,21 +135,21 @@ function createBot() {
                         shouldBan = false; 
                     }
                 } catch (e) {
-                    console.error(`\x1b[31m[AI ERROR] Moderation API unavailable. Falling back to Local Filter (BAN).\x1b[0m`);
+                    console.error(`\x1b[31m[MOD API ERROR] ${e.message}\x1b[0m`);
                 }
 
                 if (shouldBan) {
-                    console.log(`\x1b[31m[BAN] Toxicity confirmed by AI or Local Filter. Tempbanning 1h.\x1b[0m`);
+                    console.log(`\x1b[31m[BAN] Toxicity confirmed. Tempbanning 1h.\x1b[0m`);
                     bot.chat(`Filter bypass detected. ${sender} is banned for 1 hour.`);
                     setTimeout(() => { bot.chat(`/tempban ${sender} 1h Automated Filter: Abusive Language`); }, 500);
                     return; 
                 } else {
-                    console.log(`\x1b[32m[CLEAR] AI recognized a false positive. Message allowed.\x1b[0m`);
+                    console.log(`\x1b[32m[CLEAR] AI recognized a false positive. Allowed.\x1b[0m`);
                 }
             }
         }
 
-        // 3. ADMIN COMMAND: !summon <bot_name> (Vartiax only)
+        // 3. ADMIN COMMAND: !summon
         if (lowerMessage.startsWith('!summon ') && sender.toLowerCase() === "vartiax") {
             const requestedBot = rawText.split(' ')[1].trim();
             if (accounts.find(a => a.username.toLowerCase() === requestedBot.toLowerCase())) {
@@ -165,7 +162,7 @@ function createBot() {
             return;
         }
 
-        // --- LAYER 4: REAL AI RESPONDER (HIGH-CAPACITY LITE TIER WITH WEB SEARCH) ---
+        // --- LAYER 4: REAL AI RESPONDER ---
         if (lowerMessage.includes('!ask') || lowerMessage.includes(bot.username.toLowerCase())) {
             const cleanPrompt = rawText.replace(new RegExp(`!ask|${bot.username}`, 'gi'), '').trim();
             
@@ -173,19 +170,27 @@ function createBot() {
             conversationHistory.push(userMessage);
 
             try {
+                // SWITCHED TO STABLE 1.5 HIGH-VOLUME TIER
                 const chatModel = genAI.getGenerativeModel({
-                    model: "gemini-2.5-flash-lite",
-                    // I DELETED THE TOOLS LINE HERE
+                    model: "gemini-1.5-flash",
                     systemInstruction: `You are a highly intelligent Minecraft assistant named ${bot.username}. Creator: Vartiax. 
                     You have expert knowledge of modern Minecraft versions, PvP mechanics, plugins, and redstone.
                     Address the user as ${sender}. Keep your response under 150 characters. No newlines or special formatting.`
                 });
 
-                console.log(`\x1b[34m[AI] Processing request with live Google Search...\x1b[0m`);
+                console.log(`\x1b[34m[AI] Generating response for ${sender}...\x1b[0m`);
                 
                 const chatResult = await chatModel.generateContent({
                     contents: conversationHistory
                 });
+
+                // SAFETY FAILSAFE: Prevents crash if Google refuses to answer an inappropriate question
+                if (!chatResult.response || !chatResult.response.candidates || chatResult.response.candidates.length === 0) {
+                    console.log(`\x1b[33m[AI] Request blocked by Google Safety Filters.\x1b[0m`);
+                    bot.chat(`Sorry ${sender}, I cannot talk about that.`);
+                    conversationHistory.pop();
+                    return;
+                }
 
                 const finalReply = chatResult.response.text().replace(/[\n\r"]/g, ' ').substring(0, 255);
                 setTimeout(() => { bot.chat(finalReply); }, 1500);
@@ -197,7 +202,8 @@ function createBot() {
                 }
 
             } catch (e) { 
-                console.error(`\x1b[31m[AI ERROR] ${e.message}\x1b[0m`); 
+                // Enhanced error logging to show you exactly what is failing
+                console.error(`\x1b[31m[CHAT API ERROR] ${e.status || 'UNKNOWN'}: ${e.message}\x1b[0m`); 
                 conversationHistory.pop();
             }
         }
@@ -212,7 +218,6 @@ function createBot() {
 
 createBot();
 
-// Countdown log
 const logInterval = setInterval(() => {
     const remaining = Math.round((endTime.getTime() - Date.now()) / 1000 / 60);
     if (remaining > 0) {
@@ -220,7 +225,6 @@ const logInterval = setInterval(() => {
     }
 }, 30 * 60 * 1000); 
 
-// Swap trigger
 setTimeout(() => { 
     process.exit(0); 
 }, randomMinutes * 60 * 1000);
