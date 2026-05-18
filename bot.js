@@ -125,7 +125,7 @@ function createBot() {
 
                 try {
                     // CORRECT, ACTIVE MODERN MODEL
-                    const modModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+                    const modModel = genAI.getGenerativeModel({ model: "gemini-2" });
                     const modPrompt = `You are a fair chat moderator. A local regex filter flagged the following message. Is it genuinely toxic, abusive, or a slur? Answer ONLY with the exact word 'BAN' if it is malicious, or 'CLEAR' if it is innocent, a false positive, or mild. If unsure, answer 'CLEAR'.\n\nMessage: "${rawText}"`;
                     
                     const modResult = await modModel.generateContent(modPrompt);
@@ -172,7 +172,7 @@ function createBot() {
             try {
                 // CORRECT, ACTIVE MODERN MODEL WITH WEB SEARCH REMOVED TO PREVENT QUOTA CAPS
                 const chatModel = genAI.getGenerativeModel({
-                    model: "gemini-2.5-flash",
+                    model: "gemini-2",
                     systemInstruction: `You are a highly intelligent Minecraft assistant named ${bot.username}. Creator: Vartiax. 
                     You have expert knowledge of modern Minecraft versions, PvP mechanics, plugins, and redstone.
                     Address the user as ${sender}. Keep your response under 150 characters. No newlines or special formatting.`
