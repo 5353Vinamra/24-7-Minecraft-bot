@@ -38,33 +38,6 @@ const istTimeDisplay = new Date(endTime.getTime() + istOffset).toLocaleTimeStrin
 console.log(`\x1b[35m[SYSTEM] Active Identity: ${randomAccount.username} ${specificAccount ? '(SUMMONED)' : ''}\x1b[0m`);
 console.log(`\x1b[35m[SYSTEM] Swap Scheduled: ${istTimeDisplay} IST\x1b[0m`);
 
-// --- LAYER 1: THE IRON WALL (LOCAL FILTER + WHITELIST) ---
-function checkProfanity(text) {
-    let lower = text.toLowerCase();
-    
-    const whitelist = [
-        /it'?s\s*hit/, /hit\s*n\s*try/, /glass/, /classic/, /grass/, /pass/
-    ];
-    if (whitelist.some(safe => safe.test(lower))) {
-        return false; 
-    }
-    
-    let leetMap = { '0': 'o', '1': 'i', '!': 'i', '|': 'i', '3': 'e', '4': 'a', '@': 'a', '5': 's', '$': 's', '7': 't', '+': 't' };
-    let normalized = lower.replace(/[01!|34@5$7+]/g, m => leetMap[m] || m);
-    
-    let stripped = normalized.replace(/[^a-z]/g, '');
-    let squeezed = stripped.replace(/(.)\1+/g, '$1');
-
-    const badRoots = [
-        /niga/, /nigr/, /nigga/, /negr/, /fuck/, /fvck/, /phuck/, /bitch/, /shit/, /asshol/, /cunt/, /slut/, /whore/,
-        /kys/, /suicid/, /seedcrack/, /s+e+e+d+c+r+a+c+k/,
-        /chutiya/, /choot/, /chuda/, /bhencho/, /behencho/, /madarcho/, /makabho/, /bchod/, /mchod/,
-        /gandu/, /gaand/, /randi/, /randwa/, /bhosd/, /bosdi/, /bhoda/, /lawda/, /loda/, /lauda/, /lund/, /tatti/, /jhaant/
-    ];
-
-    return badRoots.some(r => r.test(squeezed) || r.test(stripped));
-}
-
 // --- MEMORY SYSTEM ---
 let conversationHistory = []; 
 const MAX_HISTORY = 30; 
@@ -114,42 +87,7 @@ function createBot() {
         const sender = nameMatch ? nameMatch[1] : "Player";
         const lowerMessage = rawText.toLowerCase();
 
-        // --- LAYER 2: AI-POWERED MODERATION ---
-        if (checkProfanity(rawText)) {
-            if (sender.toLowerCase() === "vartiax") {
-                console.log(`\x1b[33m[SHIELD] Vartiax used flagged language. Bypass granted.\x1b[0m`);
-            } else {
-                console.log(`\x1b[33m[MODERATION] Local filter flagged ${sender}. Asking AI...\x1b[0m`);
-                
-                let shouldBan = true; 
-
-                try {
-                    // CORRECT, ACTIVE MODERN MODEL
-                    const modModel = genAI.getGenerativeModel({ model: "gemini-2" });
-                    const modPrompt = `You are a fair chat moderator. A local regex filter flagged the following message. Is it genuinely toxic, abusive, or a slur? Answer ONLY with the exact word 'BAN' if it is malicious, or 'CLEAR' if it is innocent, a false positive, or mild. If unsure, answer 'CLEAR'.\n\nMessage: "${rawText}"`;
-                    
-                    const modResult = await modModel.generateContent(modPrompt);
-                    const decision = modResult.response.text().trim().toUpperCase();
-
-                    if (decision.includes("CLEAR")) {
-                        shouldBan = false; 
-                    }
-                } catch (e) {
-                    console.error(`\x1b[31m[MOD API ERROR] ${e.message}\x1b[0m`);
-                }
-
-                if (shouldBan) {
-                    console.log(`\x1b[31m[BAN] Toxicity confirmed. Tempbanning 1h.\x1b[0m`);
-                    bot.chat(`Filter bypass detected. ${sender} is banned for 1 hour.`);
-                    setTimeout(() => { bot.chat(`/tempban ${sender} 1h Automated Filter: Abusive Language`); }, 500);
-                    return; 
-                } else {
-                    console.log(`\x1b[32m[CLEAR] AI recognized a false positive. Allowed.\x1b[0m`);
-                }
-            }
-        }
-
-        // 3. ADMIN COMMAND: !summon
+        // 1. ADMIN COMMAND: !summon
         if (lowerMessage.startsWith('!summon ') && sender.toLowerCase() === "vartiax") {
             const requestedBot = rawText.split(' ')[1].trim();
             if (accounts.find(a => a.username.toLowerCase() === requestedBot.toLowerCase())) {
@@ -162,7 +100,7 @@ function createBot() {
             return;
         }
 
-        // --- LAYER 4: REAL AI RESPONDER ---
+        // --- LAYER 2: REAL AI RESPONDER ---
         if (lowerMessage.includes('!ask') || lowerMessage.includes(bot.username.toLowerCase())) {
             const cleanPrompt = rawText.replace(new RegExp(`!ask|${bot.username}`, 'gi'), '').trim();
             
