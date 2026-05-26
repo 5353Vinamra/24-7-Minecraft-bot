@@ -1,0 +1,21 @@
+name: Bulk Delete Workflow History
+
+on:
+  workflow_dispatch: # Allows you to trigger it manually with a button
+
+jobs:
+  delete-history:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Delete all runs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Fetches and deletes the top 100 runs. Run it multiple times if you have thousands.
+          RUNS=$(gh api repos/${{ github.repository }}/actions/runs --jq '.workflow_runs[].id')
+          for run_id in $RUNS; do
+            echo "Deleting run $run_id"
+            gh api -X DELETE repos/${{ github.repository }}/actions/runs/$run_id
+          done
